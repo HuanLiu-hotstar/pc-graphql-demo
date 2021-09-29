@@ -7,9 +7,9 @@
 # }
 type Playback {
   content_id: String!
-  match:             Boolean!
-	drm_class:           String! 
-	download_drm_class:   String! 
+  match:  Boolean!
+	drm_class: String! 
+	download_drm_class: String! 
   playback_set: [PlaybackSet!]!
 }
 
