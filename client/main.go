@@ -12,7 +12,7 @@ import (
 const url = "http://localhost:8080/query"
 
 func query(w string) {
-	var q struct {
+	type Resp struct {
 		GetPlaybackUrls struct {
 			Match       bool   `graphql:"match"`
 			ContentID   string `graphql:"content_id"`
@@ -22,6 +22,7 @@ func query(w string) {
 			} `graphql:"playback_set"`
 		} `graphql:"get_playback_urls(input:{content_id:$id})"`
 	}
+	q := Resp{}
 	client := graphql.NewClient(url, nil)
 	m := map[string]interface{}{
 		"id": graphql.String(w),
