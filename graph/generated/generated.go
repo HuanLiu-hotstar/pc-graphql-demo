@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"pc-compositor/graph/model"
 	"strconv"
 	"sync"
@@ -42,6 +43,11 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
+	FailureResult struct {
+		ErrCode func(childComplexity int) int
+		ErrMsg  func(childComplexity int) int
+	}
+
 	Playback struct {
 		ContentID        func(childComplexity int) int
 		DownloadDrmClass func(childComplexity int) int
@@ -58,10 +64,14 @@ type ComplexityRoot struct {
 	Query struct {
 		GetPlaybackUrls func(childComplexity int, input *model.Input) int
 	}
+
+	SuccessResult struct {
+		Playback func(childComplexity int) int
+	}
 }
 
 type QueryResolver interface {
-	GetPlaybackUrls(ctx context.Context, input *model.Input) (*model.Playback, error)
+	GetPlaybackUrls(ctx context.Context, input *model.Input) (model.PlaybackResult, error)
 }
 
 type executableSchema struct {
@@ -78,6 +88,20 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 	ec := executionContext{nil, e}
 	_ = ec
 	switch typeName + "." + field {
+
+	case "FailureResult.err_code":
+		if e.complexity.FailureResult.ErrCode == nil {
+			break
+		}
+
+		return e.complexity.FailureResult.ErrCode(childComplexity), true
+
+	case "FailureResult.err_msg":
+		if e.complexity.FailureResult.ErrMsg == nil {
+			break
+		}
+
+		return e.complexity.FailureResult.ErrMsg(childComplexity), true
 
 	case "Playback.content_id":
 		if e.complexity.Playback.ContentID == nil {
@@ -140,6 +164,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Query.GetPlaybackUrls(childComplexity, args["input"].(*model.Input)), true
 
+	case "SuccessResult.playback":
+		if e.complexity.SuccessResult.Playback == nil {
+			break
+		}
+
+		return e.complexity.SuccessResult.Playback(childComplexity), true
+
 	}
 	return 0, false
 }
@@ -199,9 +230,9 @@ var sources = []*ast.Source{
 # }
 type Playback {
   content_id: String!
-  match:             Boolean!
-	drm_class:           String! 
-	download_drm_class:   String! 
+  match:  Boolean!
+	drm_class: String! 
+	download_drm_class: String! 
   playback_set: [PlaybackSet!]!
 }
 
@@ -214,8 +245,17 @@ type PlaybackSet{
 input Input {
   content_id: String!
 }
+type SuccessResult {
+  playback: Playback!
+}
+
+type FailureResult {
+  err_code: Int!
+  err_msg: String!
+}
+union PlaybackResult = SuccessResult | FailureResult
 type Query {
-  get_playback_urls(input: Input): Playback!
+  get_playback_urls(input: Input): PlaybackResult!
 }
 `, BuiltIn: false},
 }
@@ -292,6 +332,76 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 // endregion ************************** directives.gotpl **************************
 
 // region    **************************** field.gotpl *****************************
+
+func (ec *executionContext) _FailureResult_err_code(ctx context.Context, field graphql.CollectedField, obj *model.FailureResult) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "FailureResult",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   false,
+		IsResolver: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ErrCode, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _FailureResult_err_msg(ctx context.Context, field graphql.CollectedField, obj *model.FailureResult) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "FailureResult",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   false,
+		IsResolver: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ErrMsg, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
 
 func (ec *executionContext) _Playback_content_id(ctx context.Context, field graphql.CollectedField, obj *model.Playback) (ret graphql.Marshaler) {
 	defer func() {
@@ -575,9 +685,9 @@ func (ec *executionContext) _Query_get_playback_urls(ctx context.Context, field 
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*model.Playback)
+	res := resTmp.(model.PlaybackResult)
 	fc.Result = res
-	return ec.marshalNPlayback2ᚖpcᚑcompositorᚋgraphᚋmodelᚐPlayback(ctx, field.Selections, res)
+	return ec.marshalNPlaybackResult2pcᚑcompositorᚋgraphᚋmodelᚐPlaybackResult(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query___type(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -649,6 +759,41 @@ func (ec *executionContext) _Query___schema(ctx context.Context, field graphql.C
 	res := resTmp.(*introspection.Schema)
 	fc.Result = res
 	return ec.marshalO__Schema2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐSchema(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _SuccessResult_playback(ctx context.Context, field graphql.CollectedField, obj *model.SuccessResult) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "SuccessResult",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   false,
+		IsResolver: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Playback, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.Playback)
+	fc.Result = res
+	return ec.marshalNPlayback2ᚖpcᚑcompositorᚋgraphᚋmodelᚐPlayback(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) ___Directive_name(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
@@ -1800,9 +1945,64 @@ func (ec *executionContext) unmarshalInputInput(ctx context.Context, obj interfa
 
 // region    ************************** interface.gotpl ***************************
 
+func (ec *executionContext) _PlaybackResult(ctx context.Context, sel ast.SelectionSet, obj model.PlaybackResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.SuccessResult:
+		return ec._SuccessResult(ctx, sel, &obj)
+	case *model.SuccessResult:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._SuccessResult(ctx, sel, obj)
+	case model.FailureResult:
+		return ec._FailureResult(ctx, sel, &obj)
+	case *model.FailureResult:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._FailureResult(ctx, sel, obj)
+	default:
+		panic(fmt.Errorf("unexpected type %T", obj))
+	}
+}
+
 // endregion ************************** interface.gotpl ***************************
 
 // region    **************************** object.gotpl ****************************
+
+var failureResultImplementors = []string{"FailureResult", "PlaybackResult"}
+
+func (ec *executionContext) _FailureResult(ctx context.Context, sel ast.SelectionSet, obj *model.FailureResult) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, failureResultImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FailureResult")
+		case "err_code":
+			out.Values[i] = ec._FailureResult_err_code(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "err_msg":
+			out.Values[i] = ec._FailureResult_err_msg(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
 
 var playbackImplementors = []string{"Playback"}
 
@@ -1916,6 +2116,33 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			out.Values[i] = ec._Query___type(ctx, field)
 		case "__schema":
 			out.Values[i] = ec._Query___schema(ctx, field)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
+
+var successResultImplementors = []string{"SuccessResult", "PlaybackResult"}
+
+func (ec *executionContext) _SuccessResult(ctx context.Context, sel ast.SelectionSet, obj *model.SuccessResult) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, successResultImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("SuccessResult")
+		case "playback":
+			out.Values[i] = ec._SuccessResult_playback(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -2192,8 +2419,19 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
-func (ec *executionContext) marshalNPlayback2pcᚑcompositorᚋgraphᚋmodelᚐPlayback(ctx context.Context, sel ast.SelectionSet, v model.Playback) graphql.Marshaler {
-	return ec._Playback(ctx, sel, &v)
+func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v interface{}) (int, error) {
+	res, err := graphql.UnmarshalInt(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.SelectionSet, v int) graphql.Marshaler {
+	res := graphql.MarshalInt(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "must not be null")
+		}
+	}
+	return res
 }
 
 func (ec *executionContext) marshalNPlayback2ᚖpcᚑcompositorᚋgraphᚋmodelᚐPlayback(ctx context.Context, sel ast.SelectionSet, v *model.Playback) graphql.Marshaler {
@@ -2204,6 +2442,16 @@ func (ec *executionContext) marshalNPlayback2ᚖpcᚑcompositorᚋgraphᚋmodel�
 		return graphql.Null
 	}
 	return ec._Playback(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNPlaybackResult2pcᚑcompositorᚋgraphᚋmodelᚐPlaybackResult(ctx context.Context, sel ast.SelectionSet, v model.PlaybackResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	return ec._PlaybackResult(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNPlaybackSet2ᚕᚖpcᚑcompositorᚋgraphᚋmodelᚐPlaybackSetᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.PlaybackSet) graphql.Marshaler {

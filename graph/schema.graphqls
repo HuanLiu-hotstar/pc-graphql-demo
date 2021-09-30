@@ -22,6 +22,15 @@ type PlaybackSet{
 input Input {
   content_id: String!
 }
+type SuccessResult {
+  playback: Playback!
+}
+
+type FailureResult {
+  err_code: Int!
+  err_msg: String!
+}
+union PlaybackResult = SuccessResult | FailureResult
 type Query {
-  get_playback_urls(input: Input): Playback!
+  get_playback_urls(input: Input): PlaybackResult!
 }

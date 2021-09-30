@@ -11,12 +11,19 @@ import (
 	"pc-compositor/graph/model"
 )
 
-func (r *queryResolver) GetPlaybackUrls(ctx context.Context, input *model.Input) (*model.Playback, error) {
+func (r *queryResolver) GetPlaybackUrls(ctx context.Context, input *model.Input) (model.PlaybackResult, error) {
 	p := data.GetPlaybacks(input.ContentID)
 	if p == nil {
-		return nil, fmt.Errorf("not found:%s ", input.ContentID)
+		failure := model.FailureResult{
+			ErrCode: 1,
+			ErrMsg:  fmt.Sprintf("not found:%s ", input.ContentID),
+		}
+		return failure, nil
 	}
-	return p, nil
+	success := model.SuccessResult{
+		Playback: p,
+	}
+	return success, nil
 }
 
 // Query returns generated.QueryResolver implementation.

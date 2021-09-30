@@ -2,6 +2,17 @@
 
 package model
 
+type PlaybackResult interface {
+	IsPlaybackResult()
+}
+
+type FailureResult struct {
+	ErrCode int    `json:"err_code"`
+	ErrMsg  string `json:"err_msg"`
+}
+
+func (FailureResult) IsPlaybackResult() {}
+
 type Input struct {
 	ContentID string `json:"content_id"`
 }
@@ -18,3 +29,9 @@ type PlaybackSet struct {
 	PlaybackURL     string `json:"PlaybackURL"`
 	PlaybackCDNType string `json:"PlaybackCDNType"`
 }
+
+type SuccessResult struct {
+	Playback *Playback `json:"playback"`
+}
+
+func (SuccessResult) IsPlaybackResult() {}
